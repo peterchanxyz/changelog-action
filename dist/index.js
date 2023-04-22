@@ -28245,7 +28245,14 @@ async function main () {
     idx++
   }
 
-  core.setOutput('payload', { 'blocks': slackBlocks })
+  const payload = { 
+    'text': title,
+    'blocks': slackBlocks
+  }
+
+  core.info(`payload: ${JSON.stringify(payload)}`)
+
+  core.setOutput('payload', JSON.stringify(payload))
 }
 
 main()
