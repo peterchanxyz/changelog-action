@@ -6,6 +6,7 @@ test('test run', () => {
   process.env['INPUT_TOKEN'] = '__TEST_VALUE__'
   process.env['INPUT_FROMTAG'] = '__TEST_VALUE__'
   process.env['INPUT_TOTAG'] = '__TEST_VALUE__'
+  process.env['INPUT_TITLE'] = '__TEST_VALUE__'
   process.env['INPUT_WRITETOFILE'] = 'false'
   process.env['INPUT_INCLUDEREFISSUES'] = 'true'
   process.env['INPUT_USEGITMOJIS'] = 'true'

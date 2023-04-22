@@ -2,11 +2,6 @@ const github = require('@actions/github')
 const core = require('@actions/core')
 const _ = require('lodash')
 const cc = require('@conventional-commits/parser')
-const fs = require('fs').promises
-const process = require('process')
-const { setTimeout } = require('timers/promises')
-
-const githubServerUrl = process.env.GITHUB_SERVER_URL || 'https://github.com'
 
 const types = [
   { types: ['feat', 'feature'], header: 'New Features', icon: ':sparkles:' },
@@ -21,62 +16,18 @@ const types = [
   { types: ['other'], header: 'Other Changes', icon: ':flying_saucer:' }
 ]
 
-const rePrId = /#([0-9]+)/g
-const rePrEnding = /\(#([0-9]+)\)$/
-
-function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
-  const hasPR = rePrEnding.test(subject)
-  const prs = []
-  let output = subject
-  if (writeToFile) {
-    const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
-    if (hasPR) {
-      const prMatch = subject.match(rePrEnding)
-      const msgOnly = subject.slice(0, prMatch[0].length * -1)
-      output = msgOnly.replace(rePrId, (m, prId) => {
-        prs.push(prId)
-        return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
-      })
-      output += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
-    } else {
-      output = subject.replace(rePrId, (m, prId) => {
-        return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
-      })
-      if (author) {
-        output += ` *(commit by [@${author}](${authorUrl}))*`
-      }
-    }
-  } else {
-    if (hasPR) {
-      output = subject.replace(rePrEnding, (m, prId) => {
-        prs.push(prId)
-        return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
-      })
-    } else {
-      output = author ? `${subject} *(commit by @${author})*` : subject
-    }
-  }
-  return {
-    output,
-    prs
-  }
-}
-
 async function main () {
   const token = core.getInput('token')
   const tag = core.getInput('tag')
   const fromTag = core.getInput('fromTag')
   const toTag = core.getInput('toTag')
+  const title = core.getInput('title')
   const excludeTypes = (core.getInput('excludeTypes') || '').split(',').map(t => t.trim())
-  const writeToFile = core.getBooleanInput('writeToFile')
-  const includeRefIssues = core.getBooleanInput('includeRefIssues')
-  const useGitmojis = core.getBooleanInput('useGitmojis')
   const includeInvalidCommits = core.getBooleanInput('includeInvalidCommits')
   const reverseOrder = core.getBooleanInput('reverseOrder')
   const gh = github.getOctokit(token)
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
-  const currentISODate = (new Date()).toISOString().substring(0, 10)
 
   let latestTag = null
   let previousTag = null
@@ -208,9 +159,9 @@ async function main () {
     }
   }
 
-  if (commitsParsed.length < 1) {
-    return core.setFailed('No valid commits parsed since previous tag.')
-  }
+  // if (commitsParsed.length < 1) {
+  //   return core.setFailed('No valid commits parsed since previous tag.')
+  // }
 
   if (reverseOrder) {
     commitsParsed.reverse()
@@ -220,31 +171,39 @@ async function main () {
 
   const changesFile = []
   const changesVar = []
+  const slackBlocks = []
+
+  if (title != "") {
+    slackBlocks.push({
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": title,
+        "emoji": true
+      }
+    })
+  }
+
   let idx = 0
 
   if (breakingChanges.length > 0) {
-    changesFile.push(useGitmojis ? '### :boom: BREAKING CHANGES' : '### BREAKING CHANGES')
-    changesVar.push(useGitmojis ? '### :boom: BREAKING CHANGES' : '### BREAKING CHANGES')
+    slackBlocks.push({
+      "type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": ":boom: *BREAKING CHANGES*"
+			}
+    })
+    
     for (const breakChange of breakingChanges) {
-      const body = breakChange.text.split('\n').map(ln => `  ${ln}`).join('  \n')
-      const subjectFile = buildSubject({
-        writeToFile: true,
-        subject: breakChange.subject,
-        author: breakChange.author,
-        authorUrl: breakChange.authorUrl,
-        owner,
-        repo
+      const text = breakChange.author ? `${breakChange.subject} *(by @${breakChange.author})*` : `${breakChange.subject}`
+      slackBlocks.push({
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": text
+        }
       })
-      const subjectVar = buildSubject({
-        writeToFile: false,
-        subject: breakChange.subject,
-        author: breakChange.author,
-        authorUrl: breakChange.authorUrl,
-        owner,
-        repo
-      })
-      changesFile.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectFile.output}:\n\n${body}\n`)
-      changesVar.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectVar.output}:\n\n${body}\n`)
     }
     idx++
   }
@@ -258,129 +217,34 @@ async function main () {
       continue
     }
     if (idx > 0) {
-      changesFile.push('')
-      changesVar.push('')
+      slackBlocks.push({
+        "type": "divider"
+      })
     }
-    changesFile.push(useGitmojis ? `### ${type.icon} ${type.header}` : `### ${type.header}`)
-    changesVar.push(useGitmojis ? `### ${type.icon} ${type.header}` : `### ${type.header}`)
 
-    const relIssuePrefix = type.relIssuePrefix || 'addresses'
+    slackBlocks.push({
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": `${type.icon} *${type.header}*`
+      }
+    })
 
     for (const commit of matchingCommits) {
-      const scope = commit.scope ? `**${commit.scope}**: ` : ''
-      const subjectFile = buildSubject({
-        writeToFile: true,
-        subject: commit.subject,
-        author: commit.author,
-        authorUrl: commit.authorUrl,
-        owner,
-        repo
-      })
-      const subjectVar = buildSubject({
-        writeToFile: false,
-        subject: commit.subject,
-        author: commit.author,
-        authorUrl: commit.authorUrl,
-        owner,
-        repo
-      })
-      changesFile.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectFile.output}`)
-      changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.output}`)
-
-      if (includeRefIssues && subjectVar.prs.length > 0) {
-        for (const prId of subjectVar.prs) {
-          core.info(`Querying related issues for PR ${prId}...`)
-          await setTimeout(500) // Make sure we don't go over GitHub API rate limits
-          const issuesRaw = await gh.graphql(`
-            query relIssues ($owner: String!, $repo: String!, $prId: Int!) {
-              repository (owner: $owner, name: $repo) {
-                pullRequest(number: $prId) {
-                  closingIssuesReferences(first: 50) {
-                    nodes {
-                      number
-                      author {
-                        login
-                        url
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          `, {
-            owner,
-            repo,
-            prId: parseInt(prId)
-          })
-          const relIssues = _.get(issuesRaw, 'repository.pullRequest.closingIssuesReferences.nodes')
-          for (const relIssue of relIssues) {
-            const authorLogin = _.get(relIssue, 'author.login')
-            if (authorLogin) {
-              changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url}) opened by [@${authorLogin}](${relIssue.author.url})*`)
-              changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number} opened by @${authorLogin}*`)
-            } else {
-              changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url})*`)
-              changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number}*`)
-            }
-          }
+      const slackScope = commit.scope ? `*${commit.scope}*: ` : ''
+      const text = commit.author ? `${slackScope}${commit.subject} by ${commit.author} ${commit.sha.substring(0, 7)}` : `${slackScope}${commit.subject} ${commit.sha.substring(0, 7)}`
+      slackBlocks.push({
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": text
         }
-      }
+      })
     }
     idx++
   }
 
-  if (changesFile.length > 0) {
-    changesFile.push('')
-    changesVar.push('')
-  } else {
-    return core.warning('Nothing to add to changelog because of excluded types.')
-  }
-
-  core.setOutput('changes', changesVar.join('\n'))
-
-  if (!writeToFile) { return }
-
-  // PARSE EXISTING CHANGELOG
-
-  let chglog = ''
-  try {
-    chglog = await fs.readFile('CHANGELOG.md', 'utf8')
-  } catch (err) {
-    core.info('Couldn\'t find a CHANGELOG.md, creating a new one...')
-    chglog = `# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-`
-  }
-
-  // UPDATE CHANGELOG CONTENTS
-
-  const lines = chglog.replace(/\r/g, '').split('\n')
-  let firstVersionLine = _.findIndex(lines, l => l.startsWith('## '))
-
-  if (firstVersionLine >= 0 && lines[firstVersionLine].startsWith(`## [${latestTag.name}`)) {
-    return core.notice('This version already exists in the CHANGELOG! No change will be made to the CHANGELOG.')
-  }
-
-  if (firstVersionLine < 0) {
-    firstVersionLine = lines.length
-  }
-
-  let output = ''
-  if (firstVersionLine > 0) {
-    output += lines.slice(0, firstVersionLine).join('\n') + '\n'
-  }
-  output += `## [${latestTag.name}] - ${currentISODate}\n${changesFile.join('\n')}\n`
-  if (firstVersionLine < lines.length) {
-    output += '\n' + lines.slice(firstVersionLine).join('\n')
-  }
-  output += `\n[${latestTag.name}]: ${githubServerUrl}/${owner}/${repo}/compare/${previousTag.name}...${latestTag.name}`
-
-  // WRITE CHANGELOG TO FILE
-
-  await fs.writeFile('CHANGELOG.md', output)
+  core.setOutput('payload', JSON.stringify({ 'blocks': slackBlocks }))
 }
 
 main()

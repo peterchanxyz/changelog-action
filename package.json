@@ -1,7 +1,7 @@
 {
-  "name": "changelog-action",
+  "name": "slackapi-changelog-action",
   "version": "1.0.0",
-  "description": "GitHub Action to generate changelog from conventional commits",
+  "description": "GitHub Action to generate changelog in slack mrkdwn format from conventional commits",
   "main": "dist/index.js",
   "scripts": {
     "build": "ncc build index.js -o dist",

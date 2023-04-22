@@ -1,6 +1,6 @@
-name: 'Changelog from Conventional Commits'
-description: 'Generate and update the CHANGELOG from conventional commits since latest tag or from a given tag range'
-author: Nicolas Giard
+name: 'Slackapi Changelog Generator'
+description: 'Generate Changelog in slack mrkdwn format from conventional commits since latest tag or from a given tag range'
+author: peterchanxyz
 inputs:
   token:
     description: GitHub Token
@@ -14,18 +14,13 @@ inputs:
   toTag:
     description: The tag up to which the changelog is to be determined (only if using tag range)
     required: false
+  title:
+    description: The change log title
+    required: false
   excludeTypes:
     description: Types to exclude from the Changelog
     required: false
     default: build,docs,other,style
-  writeToFile:
-    description: Should CHANGELOG.md be updated with latest changelog
-    required: false
-    default: 'true'
-  includeRefIssues:
-    description: Should the changelog include the issues referenced for each PR.
-    required: false
-    default: 'true'
   useGitmojis:
     description: Prepend type headers with their corresponding gitmoji
     required: false
@@ -33,17 +28,17 @@ inputs:
   includeInvalidCommits:
     description: Whether to include commits that don't respect the Conventional Commits format
     required: false
-    default: 'false'
+    default: 'true'
   reverseOrder:
     description: List commits in reverse order (from newer to older) instead of the default (older to newer).
     required: false
     default: 'false'
 outputs:
-  changelog:
-    description: Generated changelog
+  payload:
+    description: Generated changelog in slack mrkdwn format
 runs:
   using: 'node16'
   main: 'dist/index.js'
 branding:
   icon: wind
-  color: red
+  color: blue
