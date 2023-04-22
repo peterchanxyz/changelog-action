@@ -244,7 +244,7 @@ async function main () {
     idx++
   }
 
-  core.setOutput('payload', JSON.stringify({ 'blocks': slackBlocks }))
+  core.setOutput('payload', { 'blocks': slackBlocks })
 }
 
 main()
