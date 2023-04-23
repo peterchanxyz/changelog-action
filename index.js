@@ -260,7 +260,7 @@ async function main () {
         channel: channelId,
         ...(payload || {})
       }
-      await fetch('https://slack.com/api/chat.postMessage', {
+      const res = await fetch('https://slack.com/api/chat.postMessage', {
         method: "POST",
         headers: { 
           'Authorization': `Bearer ${slackBotToken}`,
@@ -268,6 +268,12 @@ async function main () {
          },
         body: body,
       })
+      const resdata = await res.text()
+      if (res.status != 200) {
+        core.setFailed(resdata)
+      } else {
+        core.info(resdata)
+      }
     }))
   } else {
     core.setOutput('payload', JSON.stringify(payload))
