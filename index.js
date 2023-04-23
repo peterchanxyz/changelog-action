@@ -1,6 +1,5 @@
 const github = require('@actions/github')
 const core = require('@actions/core')
-const _ = require('lodash')
 const cc = require('@conventional-commits/parser')
 const fetch = require('node-fetch')
 
@@ -61,8 +60,8 @@ async function main () {
       repo
     })
 
-    latestTag = _.get(tagsRaw, 'repository.refs.nodes[0]')
-    previousTag = _.get(tagsRaw, 'repository.refs.nodes[1]')
+    latestTag = tagsRaw.repository.refs.nodes[0]
+    previousTag = tagsRaw.repository.refs.nodes[1]
 
     if (!latestTag) {
       return core.setFailed('Couldn\'t find the latest tag. Make sure you have an existing tag already before creating a new one.')
@@ -105,8 +104,8 @@ async function main () {
       page: curPage,
       per_page: 100
     })
-    totalCommits = _.get(commitsRaw, 'data.total_commits', 0)
-    const rangeCommits = _.get(commitsRaw, 'data.commits', [])
+    totalCommits = commitsRaw.data.total_commits || 0
+    const rangeCommits = commitsRaw.data.commits || []
     commits.push(...rangeCommits)
     if ((curPage - 1) * 100 + rangeCommits.length < totalCommits) {
       hasMoreCommits = true
@@ -129,8 +128,7 @@ async function main () {
         type: cAst.type.toLowerCase(),
         sha: commit.sha,
         url: commit.html_url,
-        author: _.get(commit, 'author.login'),
-        authorUrl: _.get(commit, 'author.html_url')
+        author: commit.author.login
       })
       for (const note of cAst.notes) {
         if (note.title === 'BREAKING CHANGE') {
@@ -138,8 +136,7 @@ async function main () {
             sha: commit.sha,
             url: commit.html_url,
             subject: cAst.subject,
-            author: _.get(commit, 'author.login'),
-            authorUrl: _.get(commit, 'author.html_url'),
+            author: commit.author.login,
             text: note.text
           })
         }
@@ -152,8 +149,7 @@ async function main () {
           subject: commit.commit.message,
           sha: commit.sha,
           url: commit.html_url,
-          author: _.get(commit, 'author.login'),
-          authorUrl: _.get(commit, 'author.html_url')
+          author: commit.author.login,
         })
         core.info(`[OK] Commit ${commit.sha} with invalid type, falling back to other - ${commit.commit.message}`)
       } else {
@@ -258,7 +254,7 @@ async function main () {
     await Promise.all(slackChannelIds.map(async (channelId) => {
       const body = {
         channel: channelId,
-        ...(payload || {})
+        ...payload
       }
       await fetch('https://slack.com/api/chat.postMessage', {
         method: "POST",
