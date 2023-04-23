@@ -2,7 +2,7 @@ const github = require('@actions/github')
 const core = require('@actions/core')
 const _ = require('lodash')
 const cc = require('@conventional-commits/parser')
-const fetch = require('node-fetch')
+require('cross-fetch/polyfill');
 
 const types = [
   { types: ['feat', 'feature'], header: 'New Features', icon: ':sparkles:' },
