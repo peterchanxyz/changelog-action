@@ -17,6 +17,12 @@ inputs:
   title:
     description: The change log title
     required: false
+  slackBotToken:
+    description: slack bot token
+    required: false
+  slackChannelIds:
+    description: slack channel id, separate by ','
+    required: false
   excludeTypes:
     description: Types to exclude from the Changelog
     required: false

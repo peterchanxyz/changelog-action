@@ -2,6 +2,7 @@ const github = require('@actions/github')
 const core = require('@actions/core')
 const _ = require('lodash')
 const cc = require('@conventional-commits/parser')
+const fetch = require('node-fetch')
 
 const types = [
   { types: ['feat', 'feature'], header: 'New Features', icon: ':sparkles:' },
@@ -22,6 +23,8 @@ async function main () {
   const fromTag = core.getInput('fromTag')
   const toTag = core.getInput('toTag')
   const title = core.getInput('title')
+  const slackBotToken = core.getInput('slackBotToken')
+  const slackChannelIds = (core.getInput('slackChannelId') || '').split(',').map(t => t.trim())
   const excludeTypes = (core.getInput('excludeTypes') || '').split(',').map(t => t.trim())
   const includeInvalidCommits = core.getBooleanInput('includeInvalidCommits')
   const reverseOrder = core.getBooleanInput('reverseOrder')
@@ -251,7 +254,24 @@ async function main () {
 
   core.info(`payload: ${JSON.stringify(payload)}`)
 
-  core.setOutput('payload', JSON.stringify(payload))
+  if (slackBotToken.length > 0 && slackChannelIds.length > 0) {
+    await Promise.all(slackChannelIds.map(async (channelId) => {
+      const body = {
+        channel: channelId,
+        ...(payload || {})
+      }
+      await fetch('https://slack.com/api/chat.postMessage', {
+        method: "POST",
+        headers: { 
+          'Authorization': `Bearer ${slackBotToken}`,
+          "Content-Type": "application/json",
+         },
+        body: body,
+      })
+    }))
+  } else {
+    core.setOutput('payload', JSON.stringify(payload))
+  }
 }
 
 main()
