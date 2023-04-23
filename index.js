@@ -252,21 +252,20 @@ async function main () {
     'blocks': slackBlocks
   }
 
-  core.info(`payload: ${JSON.stringify(payload)}`)
-
   if (slackBotToken.length > 0 && slackChannelIds.length > 0) {
     await Promise.all(slackChannelIds.map(async (channelId) => {
-      const body = {
-        channel: channelId,
-        ...(payload || {})
-      }
+
+      payload['channel'] = channelId
+
+      core.info(`payload: ${JSON.stringify(payload)}`)
+
       const res = await fetch('https://slack.com/api/chat.postMessage', {
         method: "POST",
         headers: { 
           'Authorization': `Bearer ${slackBotToken}`,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
          },
-        body: body,
+        body: JSON.stringify(payload),
       })
       const resdata = await res.text()
       if (res.status != 200) {
