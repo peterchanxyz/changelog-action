@@ -29777,7 +29777,7 @@ async function main () {
   const toTag = core.getInput('toTag')
   const title = core.getInput('title')
   const slackBotToken = core.getInput('slackBotToken')
-  const slackChannelIds = (core.getInput('slackChannelId') || '').split(',').map(t => t.trim())
+  const slackChannelIds = (core.getInput('slackChannelIds') || '').split(',').map(t => t.trim())
   const excludeTypes = (core.getInput('excludeTypes') || '').split(',').map(t => t.trim())
   const includeInvalidCommits = core.getBooleanInput('includeInvalidCommits')
   const reverseOrder = core.getBooleanInput('reverseOrder')
